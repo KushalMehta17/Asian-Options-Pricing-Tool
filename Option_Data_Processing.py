@@ -93,70 +93,40 @@ def get_option_chain(ticker):
 
 def get_closest_option_price(ticker, K, T):
     """
-    Find closest European option from market data
-
-    Returns:
-    dict with:
-    - price
-    - strike used
-    - expiry used
+    Safe fetch of the closest European option price
+    Returns None if it fails 
     """
 
-    stock = yf.Ticker(ticker)
+    import yfinance as yf
+    import pandas as pd
+    from datetime import datetime
 
-    expiries = stock.options
-
-    if len(expiries) == 0:
-        return None
-
-    # Target expiry date
-    today = datetime.today()
-    target_days = int(T * 365)
-    target_date = today + pd.Timedelta(days=target_days)
-
-    # Find closest expiry
-    expiry_dates = [pd.to_datetime(e) for e in expiries]
-    closest_expiry = min(expiry_dates, key=lambda d: abs(d - target_date))
-
-    # Fetch option chain
     try:
+        stock = yf.Ticker(ticker)
+
+        expiries = stock.options
+
+        if not expiries:
+            return None
+
+        today = datetime.today()
+        target_days = int(T * 365)
+        target_date = today + pd.Timedelta(days=target_days)
+
+        expiry_dates = [pd.to_datetime(e) for e in expiries]
+        closest_expiry = min(expiry_dates, key=lambda d: abs(d - target_date))
+
         chain = stock.option_chain(closest_expiry.strftime("%Y-%m-%d"))
-    except:
+        calls = chain.calls.copy()
+
+        calls["diff"] = abs(calls["strike"] - K)
+        closest_row = calls.loc[calls["diff"].idxmin()]
+
+        return {
+            "price": float(closest_row["lastPrice"]),
+            "strike": float(closest_row["strike"]),
+            "expiry": closest_expiry.strftime("%Y-%m-%d")
+        }
+
+    except Exception:
         return None
-
-    calls = chain.calls
-
-    if calls is None or calls.empty:
-        return None
-
-    # Clean data (important for robustness)
-    calls = calls.dropna()
-
-    if calls.empty:
-        return None
-
-    # Find closest strike
-    calls = calls.copy()  
-    calls["diff"] = abs(calls["strike"] - K)
-    closest_row = calls.loc[calls["diff"].idxmin()]
-
-    # ================================
-    # BETTER PRICE: MID PRICE
-    # ================================
-
-    bid = closest_row.get("bid", 0)
-    ask = closest_row.get("ask", 0)
-
-    if bid > 0 and ask > 0:
-        market_price = (bid + ask) / 2
-    else:
-        market_price = closest_row.get("lastPrice", None)
-
-    if market_price is None:
-        return None
-
-    return {
-        "price": float(market_price),
-        "strike": float(closest_row["strike"]),
-        "expiry": closest_expiry.strftime("%Y-%m-%d")
-    }
