@@ -212,10 +212,14 @@ for m in ordered_methods:
         data.append({
             "Method": m,
             "Price": round(price_dict[m], 2),
-            "Std Error": round(std_error_dict[m], 2)
+            "Std Dev": round(std_dev_dict[m], 2),
+            "Std Error": round(std_error_dict[m], 4)
         })
 
-st.dataframe(pd.DataFrame(data), use_container_width=True)
+df = pd.DataFrame(data)
+df.index = np.arange(1, len(df) + 1)
+
+st.dataframe(df, use_container_width=True)
 
 # ================================
 # PLOTS 
