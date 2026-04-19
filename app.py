@@ -35,11 +35,16 @@ ticker = st.sidebar.selectbox(
         "ICICIBANK.NS", "SBIN.NS", "HINDUNILVR.NS"
     ]
 )
-S0 = get_stock_price(ticker)
+
+@st.cache_data(ttl=300)
+def cached_price(ticker):
+    return get_stock_price(ticker)
+
+S0 = cached_price(ticker)
 
 if S0 is None:
-    st.error("Failed to fetch stock price.")
-    st.stop()
+    st.warning("Live data unavailable. Using fallback price.")
+    S0 = 100
 
 st.sidebar.write(f"**Current Price (S₀):** {S0:.2f}")
 
@@ -58,9 +63,13 @@ st.sidebar.write(f"Time Steps (T x 252): {steps}")
 
 vol_mode = st.sidebar.radio("Volatility Mode", ["Auto", "Manual"])
 
-if vol_mode == "Auto":
+@st.cache_data(ttl=300)
+def cached_volatility(ticker):
     hist_data = get_historical_data(ticker)
-    sigma = compute_volatility(hist_data)
+    return compute_volatility(hist_data)
+    
+if vol_mode == "Auto":
+    sigma = cached_volatility(ticker)
     if sigma is None:
         st.error("Failed to compute volatility.")
         st.stop()
