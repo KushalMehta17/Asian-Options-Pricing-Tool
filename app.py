@@ -142,11 +142,13 @@ euro_mc_price = np.exp(-r * T) * np.mean(european_payoffs)
 
 price_dict = {}
 std_dev_dict = {}
+std_error_dict = {}
 payoffs_dict = {}
 
 if "Standard MC" in methods:
     discounted = np.exp(-r * T) * asian_payoffs
     price_dict["Standard MC"] = np.mean(discounted)
+    std_dev_dict["Standard MC"] = np.std(discounted)
     std = np.std(discounted)
     std_error_dict["Standard MC"] = std / np.sqrt(simulations)
     payoffs_dict["Standard MC"] = discounted
@@ -154,12 +156,14 @@ if "Standard MC" in methods:
 if "Antithetic" in methods:
     p, s, se, pay = antithetic_mc(S0, K, r, sigma, T, steps, simulations, option_type)
     price_dict["Antithetic"] = p
+    std_dev_dict["Antithetic"] = s
     std_error_dict["Antithetic"] = se
     payoffs_dict["Antithetic"] = pay
 
 if "Control Variate" in methods:
     p, s, se, pay = control_variate_mc(S0, K, r, sigma, T, steps, simulations, option_type)
     price_dict["Control Variate"] = p
+    std_dev_dict["Control Variate"] = s
     std_error_dict["Control Variate"] = se
     payoffs_dict["Control Variate"] = pay
 
