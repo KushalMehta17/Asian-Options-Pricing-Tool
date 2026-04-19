@@ -71,8 +71,8 @@ def cached_volatility(ticker):
 if vol_mode == "Auto":
     sigma = cached_volatility(ticker)
     if sigma is None:
-        st.error("Failed to compute volatility.")
-        st.stop()
+        st.warning("Volatility unavailable. Using default value.")
+        sigma = 0.2
     st.sidebar.write(f"σ (Historical): {sigma:.4f}")
 else:
     sigma = st.sidebar.slider("Volatility (σ)", 0.1, 0.6, 0.2)
@@ -168,8 +168,19 @@ if "Control Variate" in methods:
 
 bs_price = black_scholes_price(S0, K, T, r, sigma, option_type)
 
-market_data = get_closest_option_price(ticker, K, T)
-market_price = market_data["price"] if market_data else None
+@st.cache_data(ttl=600)
+def cached_option_price(ticker, K, T):
+    try:
+        return get_closest_option_price(ticker, K, T)
+    except Exception:
+        return None
+
+market_data = cached_option_price(ticker, K, T)
+
+market_price = market_data["price"] if market_data and "price" in market_data else None
+
+if market_data is None:
+    st.warning("Real market data unavailable. Showing model prices only.")
 
 # ================================
 # DISPLAY
