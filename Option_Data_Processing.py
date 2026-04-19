@@ -10,21 +10,26 @@ from datetime import datetime
 
 def get_stock_price(ticker):
     """
-    Fetch latest stock price (S0)
+    Fetch the latest stock price safely
     """
 
-    stock = yf.Ticker(ticker)
+    import yfinance as yf
 
-    price = stock.fast_info.get("lastPrice", None)
+    try:
+        stock = yf.Ticker(ticker)
 
-    # Fallback if fast_info fails
-    if price is None:
-        data = stock.history(period="1d")
-        if data.empty:
-            return None
-        price = data["Close"].iloc[-1]
+        # Try fast_info
+        price = stock.fast_info.get("lastPrice", None)
 
-    return float(price)
+        # Fallback 1
+        if price is None:
+            data = stock.history(period="1d")
+            price = data["Close"].iloc[-1]
+
+        return float(price)
+
+    except Exception as e:
+        return None
 
 
 # ================================
