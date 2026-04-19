@@ -147,19 +147,20 @@ payoffs_dict = {}
 if "Standard MC" in methods:
     discounted = np.exp(-r * T) * asian_payoffs
     price_dict["Standard MC"] = np.mean(discounted)
-    std_dev_dict["Standard MC"] = np.std(discounted)
+    std = np.std(discounted)
+    std_error_dict["Standard MC"] = std / np.sqrt(simulations)
     payoffs_dict["Standard MC"] = discounted
 
 if "Antithetic" in methods:
-    p, s, _, pay = antithetic_mc(S0, K, r, sigma, T, steps, simulations, option_type)
+    p, s, se, pay = antithetic_mc(S0, K, r, sigma, T, steps, simulations, option_type)
     price_dict["Antithetic"] = p
-    std_dev_dict["Antithetic"] = s
+    std_error_dict["Antithetic"] = se
     payoffs_dict["Antithetic"] = pay
 
 if "Control Variate" in methods:
-    p, s, _, pay = control_variate_mc(S0, K, r, sigma, T, steps, simulations, option_type)
+    p, s, se, pay = control_variate_mc(S0, K, r, sigma, T, steps, simulations, option_type)
     price_dict["Control Variate"] = p
-    std_dev_dict["Control Variate"] = s
+    std_error_dict["Control Variate"] = se
     payoffs_dict["Control Variate"] = pay
 
 # ================================
@@ -178,9 +179,6 @@ def cached_option_price(ticker, K, T):
 market_data = cached_option_price(ticker, K, T)
 
 market_price = market_data["price"] if market_data and "price" in market_data else None
-
-if market_data is None:
-    st.warning("Real market data unavailable. Showing model prices only.")
 
 # ================================
 # DISPLAY
@@ -210,7 +208,7 @@ for m in ordered_methods:
         data.append({
             "Method": m,
             "Price": round(price_dict[m], 2),
-            "Std Dev": round(std_dev_dict[m], 2)
+            "Std Error": round(std_error_dict[m], 2)
         })
 
 st.dataframe(pd.DataFrame(data), use_container_width=True)
