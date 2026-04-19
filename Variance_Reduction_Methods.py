@@ -68,7 +68,7 @@ def antithetic_mc(S0, K, r, sigma, T, steps, simulations, option_type="call"):
 
     price = np.mean(discounted)
     std_dev = np.std(discounted)
-    std_error = std_dev / np.sqrt(half)
+    std_error = std_dev / np.sqrt(simulations)
 
     return price, std_dev, std_error, discounted
 
