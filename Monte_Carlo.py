@@ -123,10 +123,8 @@ def price_with_stats(S0, K, r, sigma, T, steps, simulations, option_type="asian"
     # Measure spread of results (variance)
     std_dev = np.std(discounted_payoffs)
 
-    # ✅ NEW: standard error (important for MC accuracy)
     std_error = std_dev / np.sqrt(simulations)
 
-    # ✅ NEW: return payoffs for histogram / comparison
     return price, std_dev, std_error, discounted_payoffs
 
 

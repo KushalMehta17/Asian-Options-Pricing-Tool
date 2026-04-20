@@ -13,22 +13,19 @@ def get_stock_price(ticker):
     Fetch the latest stock price safely
     """
 
-    import yfinance as yf
-
     try:
         stock = yf.Ticker(ticker)
 
-        # Try fast_info
         price = stock.fast_info.get("lastPrice", None)
 
-        # Fallback 1
         if price is None:
             data = stock.history(period="1d")
-            price = data["Close"].iloc[-1]
+            if not data.empty:
+                price = data["Close"].iloc[-1]
 
-        return float(price)
+        return float(price) if price else None
 
-    except Exception as e:
+    except Exception:
         return None
 
 
@@ -39,16 +36,19 @@ def get_stock_price(ticker):
 def get_historical_data(ticker, period="1y"):
     """
     Fetch historical stock data
-    Default: 1 year (used for volatility)
     """
 
-    stock = yf.Ticker(ticker)
-    data = stock.history(period=period)
+    try:
+        stock = yf.Ticker(ticker)
+        data = stock.history(period=period)
 
-    if data.empty:
+        if data.empty:
+            return None
+
+        return data["Close"]
+
+    except Exception:
         return None
-
-    return data["Close"]
 
 
 # ================================
@@ -67,9 +67,7 @@ def compute_volatility(price_series):
 
     daily_vol = np.std(log_returns)
 
-    annual_vol = daily_vol * np.sqrt(252)
-
-    return float(annual_vol)
+    return float(daily_vol * np.sqrt(252))
 
 
 # ================================
@@ -78,37 +76,38 @@ def compute_volatility(price_series):
 
 def get_option_chain(ticker):
     """
-    Fetch all available option expiries and chains
+    Fetch all available option expiries
     """
 
-    stock = yf.Ticker(ticker)
-    expiries = stock.options
-
-    return stock, expiries
+    try:
+        stock = yf.Ticker(ticker)
+        expiries = stock.options
+        return stock, expiries
+    except Exception:
+        return None, []
 
 
 # ================================
 # 5. FIND CLOSEST MARKET OPTION
 # ================================
 
-def get_closest_option_price(ticker, K, T):
+def get_closest_option_price(ticker, K, T, option_type="call"):
     """
-    Safe fetch of the closest European option price
-    Returns None if it fails 
-    """
+    Fetch closest European option (CALL or PUT)
 
-    import yfinance as yf
-    import pandas as pd
-    from datetime import datetime
+    option_type: "call" or "put"
+    """
 
     try:
         stock = yf.Ticker(ticker)
 
         expiries = stock.options
-
         if not expiries:
             return None
 
+        # ------------------------
+        # Find closest expiry
+        # ------------------------
         today = datetime.today()
         target_days = int(T * 365)
         target_date = today + pd.Timedelta(days=target_days)
@@ -116,16 +115,44 @@ def get_closest_option_price(ticker, K, T):
         expiry_dates = [pd.to_datetime(e) for e in expiries]
         closest_expiry = min(expiry_dates, key=lambda d: abs(d - target_date))
 
+        # ------------------------
+        # Fetch option chain
+        # ------------------------
         chain = stock.option_chain(closest_expiry.strftime("%Y-%m-%d"))
-        calls = chain.calls.copy()
 
-        calls["diff"] = abs(calls["strike"] - K)
-        closest_row = calls.loc[calls["diff"].idxmin()]
+        if option_type == "call":
+            options_df = chain.calls.copy()
+        else:
+            options_df = chain.puts.copy()
+
+        if options_df.empty:
+            return None
+
+        # ------------------------
+        # Find closest strike
+        # ------------------------
+        options_df["diff"] = abs(options_df["strike"] - K)
+        closest_row = options_df.loc[options_df["diff"].idxmin()]
+
+        # ------------------------
+        # Extract price safely
+        # ------------------------
+        price = closest_row.get("lastPrice", None)
+
+        if price is None or np.isnan(price):
+            price = closest_row.get("bid", 0)
+
+        if price is None or np.isnan(price):
+            price = closest_row.get("ask", 0)
+
+        if price is None:
+            return None
 
         return {
-            "price": float(closest_row["lastPrice"]),
+            "price": float(price),
             "strike": float(closest_row["strike"]),
-            "expiry": closest_expiry.strftime("%Y-%m-%d")
+            "expiry": closest_expiry.strftime("%Y-%m-%d"),
+            "type": option_type
         }
 
     except Exception:

@@ -19,6 +19,15 @@ from Plotting import (
 st.set_page_config(page_title="Asian Option Pricer", layout="wide")
 
 # ================================
+# Currency Symbol
+# ================================
+
+def get_currency_symbol(ticker):
+    if ticker.endswith(".NS"):
+        return "₹"
+    return "$"
+
+# ================================
 # SIDEBAR INPUTS
 # ================================
 
@@ -27,14 +36,13 @@ st.sidebar.header("Input Parameters")
 ticker = st.sidebar.selectbox(
     "Select Stock",
     [
-        # US Stocks
         "AAPL", "MSFT", "GOOG", "AMZN", "TSLA", "META", "NVDA",
-
-        # Indian Stocks
         "RELIANCE.NS", "TCS.NS", "INFY.NS", "HDFCBANK.NS",
         "ICICIBANK.NS", "SBIN.NS", "HINDUNILVR.NS"
     ]
 )
+
+currency = get_currency_symbol(ticker)
 
 @st.cache_data(ttl=300)
 def cached_price(ticker):
@@ -46,7 +54,7 @@ if S0 is None:
     st.warning("Live data unavailable. Using fallback price.")
     S0 = 100
 
-st.sidebar.write(f"**Current Price (S₀):** {S0:.2f}")
+st.sidebar.write(f"**Current Price (S₀):** {currency}{S0:.2f}")
 
 option_type = st.sidebar.radio("Option Type", ["call", "put"])
 
@@ -73,7 +81,7 @@ if vol_mode == "Auto":
     if sigma is None:
         st.warning("Volatility unavailable. Using default value.")
         sigma = 0.2
-    st.sidebar.write(f"σ (Historical): {sigma:.4f}")
+    st.sidebar.write(f"σ (1-Year Historical): {sigma:.4f}")
 else:
     sigma = st.sidebar.slider("Volatility (σ)", 0.1, 0.6, 0.2)
 
@@ -88,7 +96,6 @@ methods = st.sidebar.multiselect(
     default=["Standard MC", "Antithetic", "Control Variate"]
 )
 
-# Submit button
 run = st.sidebar.button("Submit")
 
 # ================================
@@ -118,14 +125,13 @@ if not run:
 # MAIN COMPUTATION
 # ================================
 
-np.random.seed(42)  
+np.random.seed(42)
 
 paths = simulate_gbm(S0, r, sigma, T, steps, simulations)
 
 avg_price = np.mean(paths, axis=1)
 ST = paths[:, -1]
 
-# Payoffs
 if option_type == "call":
     asian_payoffs = np.maximum(avg_price - K, 0)
     european_payoffs = np.maximum(ST - K, 0)
@@ -174,13 +180,13 @@ if "Control Variate" in methods:
 bs_price = black_scholes_price(S0, K, T, r, sigma, option_type)
 
 @st.cache_data(ttl=600)
-def cached_option_price(ticker, K, T):
+def cached_option_price(ticker, K, T, option_type):
     try:
-        return get_closest_option_price(ticker, K, T)
-    except Exception:
+        return get_closest_option_price(ticker, K, T, option_type)
+    except:
         return None
 
-market_data = cached_option_price(ticker, K, T)
+market_data = cached_option_price(ticker, K, T, option_type)
 
 market_price = market_data["price"] if market_data and "price" in market_data else None
 
@@ -191,12 +197,20 @@ market_price = market_data["price"] if market_data and "price" in market_data el
 st.header("Results")
 
 cols = st.columns(4)
-cols[0].metric("Asian (MC)", f"{asian_price:.2f}")
-cols[1].metric("European (MC)", f"{euro_mc_price:.2f}")
-cols[2].metric("Black-Scholes", f"{bs_price:.2f}")
+cols[0].metric("Asian (MC)", f"{currency}{asian_price:.2f}")
+cols[1].metric("European (MC)", f"{currency}{euro_mc_price:.2f}")
+cols[2].metric("Black-Scholes", f"{currency}{bs_price:.2f}")
 
 if market_price:
-    cols[3].metric("Real Market Price", f"{market_price:.2f}")
+    cols[3].metric("Real Market Price", f"{currency}{market_price:.2f}")
+
+if market_data and market_price is not None:
+    st.markdown(
+        f"<div style='text-align:center; margin-top:10px;'>"
+        f"<medium>Closest Real Market Option → Strike: {currency}{market_data['strike']:.2f} | Expiry: {market_data['expiry']}</small>"
+        f"</div>",
+        unsafe_allow_html=True
+    )
 
 # ================================
 # VARIANCE TABLE
@@ -211,7 +225,7 @@ for m in ordered_methods:
     if m in price_dict:
         data.append({
             "Method": m,
-            "Price": round(price_dict[m], 2),
+            "Price": f"{currency}{round(price_dict[m], 2)}",
             "Std Dev": round(std_dev_dict[m], 2),
             "Std Error": round(std_error_dict[m], 4)
         })

@@ -26,7 +26,6 @@ def black_scholes_put(S0, K, T, r, sigma):
     return K * np.exp(-r * T) * norm.cdf(-d2) - S0 * norm.cdf(-d1)
 
 
-# Optional wrapper (clean usage later)
 def black_scholes_price(S0, K, T, r, sigma, option_type="call"):
     if option_type == "call":
         return black_scholes_call(S0, K, T, r, sigma)
@@ -105,7 +104,7 @@ def control_variate_mc(S0, K, r, sigma, T, steps, simulations, option_type="call
     asian = np.exp(-r * T) * asian
     euro = np.exp(-r * T) * euro
 
-    # BS price (already discounted)
+    # BS price
     bs_price = black_scholes_price(S0, K, T, r, sigma, option_type)
 
     cov = np.mean((asian - np.mean(asian)) * (euro - np.mean(euro)))
