@@ -129,7 +129,7 @@ np.random.seed(42)
 
 paths = simulate_gbm(S0, r, sigma, T, steps, simulations)
 
-avg_price = np.mean(paths, axis=1)
+avg_price = np.mean(paths[:, 1:], axis=1)
 ST = paths[:, -1]
 
 if option_type == "call":
@@ -313,7 +313,6 @@ with col3:
     plt.legend()
 
     st.pyplot(fig3)
-
 
 # Payoff Distribution 
 with col4:
